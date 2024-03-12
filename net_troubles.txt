@@ -1,0 +1,160 @@
+arp
+ip neigh
+/proc/sys/net/ipv4/neigh/default - параметры для настройки сетевого модуля, реализующего протокол ARP
+
+sysctl net.ipv4.ip_default_ttl - дефолтное кол-во прыжков TTL
+/proc/sys/net/ipv4/ip_default_ttl
+sysctl net.ipv4.tcp_fin_timeout - дефолтное время ожидание FIN ответа
+
+/etc/services - файл соответствия сетевых служб и номеров портов
+/etc/NetworkManager/system-connections - инфа о соединениях
+/etc/NetworkManager/NetworkManager.conf - конфиг файл
+
+nmcli device show <interface>
+mncli connection show <connection name> - просмотр настроек
+nmtui - псевдографическая утилита для настройки подключений
+
+
+
+#BONDING
+nmcli con add type bond ifname <master name> - создание логического мастер интерфейса
+nmcli con add type ethernet ifname ethX master <master name> - определяем подчиненные интерфейсы
+nmcli con add type ethernet ifname ethY master <master name>
+nmcli con up bond-slave-ethX(Y) - активируем соединения
+nmcli con mod bond-<master name> bond.options "mode=active-backup (или другие)" - изменение поведения bonding, modinfo bonding - инфа по параметрам
+watch cat /proc/net/bonding/bond0 - мониторинг поведения bonding
+
+
+
+#ROUTES
+netstat -r , ip route - инфа о доступных путях в сети
+ip route add <ip>/m via <ip> - временное определение статических маршрутов
+ip route get <ip> - покажет куда пойдет пакет
+nmcli con mod <connection name> ipv4.gateway <ip> ,
+ip route add default via <gateway address> - установка шлюза по умолчанию
+
+sysctl -w net.ipv4.ip_forward=1 - немедленное включение маршрутизации в ядре
+/etc/sysctl.conf - добавить net.ipv4.ip_forward=1 - для постоянного включения внутренней маршрутизации
+
+ip -br link show - краткая инфа о состоянии интерфейсов на UP/NO-CARRIER
+ip -s link show - статистика переданных и полученных пакетов для разных ин-сов
+lspci - определение, распознало ли ядро ОС сетевую карту
+modprobe <driver name> - если драйвер сетевой карты не установлен
+ethtool - получить инфу по драйверу сетевой карты (-i), изменить настройки карты (-s), получить статистику об использовании интерфейса (-S)
+
+dhclient -v - проверка доступности DHCP сервера
+
+ping -s <packet size> ip - ICMP-сообщения большого размера (15000 например)
+*traceroute использует UDP по умолчанию, -M <tcp/icmp> - для смены протокола
+
+/proc/sys/net/ipv4/ip_local_port_range - параметр ядра определяющий диапазон портов
+
+nmap <address> - для сканирования портов
+-sT - пытается установить TCP соединение
+-sS - отправляется пакет с устновленным флагом SYN
+-sA - отправляется пакет с установленным ACK флагом
+-sU - скан UDP портов
+
+netstat -ntlp / ss -ntlp 
+journalctl -u <service_name>.service - проверка локальных сетевых служб
+journalctl -u <unit_name>.service
+
+watch "netstat -tan | grep -i syn | wc -l" - обнаружение SYN Flood атаки
+netstat -tan | grep -i syn | wc -l - кол-во полуоткрытых соединений
+
+tcpdump
+-i <interface name> - указывает интерфейс, на котором будет перехватываться трафик
+-w <file name> - сохранение перехваченного трафика в файл
+-r <file name> - чтение перехваченного трафика из файла
+-c <number> - кол-во записей о трафике, которые будут перехвачены
+-n - не разрешать имена
+host - фильтрация по адресу или имени хоста
+net - фильтрация по номеру сети
+port - фильтрация по номеру или имени порта
+<protocol name> - по протоколу (tcp,udp,icmp,arp,ip,ip6)
+tcp[13]&16 == 16 - установлен TCP ACK flag
+tcp[13]&2 == 2 - TCP SYN flag
+tcp[13]&1 == 1 - TCP FIN flag
+tcp[13] == 18 - SYN-ACK packet
+icmp[0:2] == 0x0301 - хост/сеть не доступны
+
+
+
+#SSH
+
+/etc/ssh/ssh_config - конфиг для клиента ssh
+/etc/ssh/sshd_config - конфиг для службы sshd
+~/.ssh/config - индивидуальные настройки клиента
+~/.ssh/authorized_keys - файл с публичными ключами пользователей на сервере
+~/.ssh/known_hosts - публичные ключи ssh-серверов
+
+ssh-keyscan - получение пуб ключа сервера
+ssh-keygen - создание пары ключей на клиенте
+ssh-copy-id username@host - копирование пуб ключа на сервер
+seval $(ssh-agent) - запуск ssh-agent
+ssh-agent - кэширование приватных ключей
+ssh-add - добавление ключей в кэш агента
+
+ssh -p <port number> username@host - подключение по нестандартному порту
+scp <filename> username@hostname:path - копирование файла на удаленный хост
+scp username@hostname:path /localpath - копирование с удаленного хоста
+sshfs username@hostname: ~/mount_point - монтирование удаленной ФС в локальной
+fusermount -u ~/mount_point - размонтировать файловую систему, подключенную по ssh
+
+/usr/lib/openssh/sftp-server - sftp-server
+
+ssh -fnN -L <local_port:server_address:server_port> username@<ssh_server_name> - прямой тунель, проброс порта локального хоста на порт сервера
+links2 http://localhost:8080 - получаем доступ к службе, с которой работает ssh сервер на удаленном хосте
+ssh -fnN -R <remote_port:server_address:server_port> username@<ssh_server_address> - обратный тунель, проброс порта удаленного компьютера на порт сервера
+links2 http://ssh_server:8080 - получаем доступ службе через ssh сервер
+ssh -fN -D <ip_host:port> username@<ssh_server_address> - динамическая переадресация портов
+
+для работы apt через SOCKS-прокси
+создать файл в /etc/apt/apt.conf.d, в него включить 
+Acquire::https::Proxy "socks5h://<ip_addr:port>";
+Acquire::http::Proxy "socks5h://<ip_addr:port>";
+
+
+
+#DNS
+
+/etc/bind/named.conf - основной конф файл
+/etc/bind/named.conf.options - глобальные параметры
+/etc/bind/named.conf.local - описание зон
+/etc/bind/named.conf.default-zones - описание стандартных зон (корневая, localhost, 127 in-addr-arpa)
+
+/etc/nsswitch.conf - порядок разрешения имен хостов
+/etc/resolv.conf - networking.service
+
+named-checkconf
+named-checkzone
+nslookup 
+named -g - запуск сервера в foreground с выводом отладочной инфы
+rndc - утилита управления сервером, можноо изменить уровень отладки
+
+
+
+#DNCP
+
+/etc/default/isc-dhcp-server
+/etc/dhcp/dhcpd.conf - основные конфиг файлы
+/etc/dhcp/dhclient.conf - конф файл dhclient
+
+journalctl -u isc-dhcp-server -f - на сервере
+journalctl -u NetworkManager -f - на клиенте
+
+/var/lib/dhcp/dhcpd.leases - просмотр журналов аренды на сервере
+/var/lib/NetworkManager/dhclient*.lease - на клиенте
+
+nmap -n --script broadcast-dhcp-discover -e <interface name> - поиск работающего DHCP сервера в сети
+tcpdump -nv -i <interface name> udp port 68 - анализ сетевого трафика
+
+dhcp-lease-list - просмотр журнала аренды
+
+
+
+
+
+
+
+
