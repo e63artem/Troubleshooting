@@ -153,7 +153,14 @@ dhcp-lease-list - просмотр журнала аренды
 
 
 
+#SQUID
+/etc/squid/squid.conf
 
+
+#NTP
+systemd-timesyncd - служба
+/etc/systemd/timesyncd.conf - настройки службы
+timedatectl timesync-status
 
 
 
